@@ -1,10 +1,8 @@
 ---
 name: ci-doctor
 description: Diagnoses and repairs an eligible CI failure on the existing pull-request branch.
-engine: codex
-model: gpt-5.6-sol
-options:
-  reasoning_effort: high
+engine: claude_code
+model: claude-sonnet-5-5
 enabled: true
 triggers:
   - type: manual

@@ -1,10 +1,8 @@
 ---
 name: builder
 description: Implements a complete story and proves the result in the real development environment.
-engine: codex
-model: gpt-5.6-sol
-options:
-  reasoning_effort: xhigh
+engine: claude_code
+model: claude-sonnet-5-5
 enabled: true
 triggers:
   - type: manual

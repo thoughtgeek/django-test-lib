@@ -6,6 +6,8 @@ environment:
   setup: "curl -LsSf https://astral.sh/uv/install.sh | sh && export PATH=\"$HOME/.local/bin:$PATH\" && uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -r requirements.txt && .venv/bin/python manage.py migrate"
   start: ".venv/bin/python manage.py runserver 0.0.0.0:8000"
   ready: "curl --fail http://127.0.0.1:8000/"
+  secrets:
+    - CLAUDE_CODE_OAUTH_TOKEN
   services:
     app:
       port: 8000

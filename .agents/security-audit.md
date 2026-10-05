@@ -2,7 +2,7 @@
 name: security-audit
 description: Audits current repository changes and dependencies for actionable security risks.
 engine: claude_code
-model: claude-opus-4-8
+model: claude-sonnet-5-5
 enabled: true
 triggers:
   - type: manual

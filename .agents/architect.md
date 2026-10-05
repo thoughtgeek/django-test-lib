@@ -2,7 +2,7 @@
 name: architect
 description: Turns a story into an implementation-ready plan grounded in the repository.
 engine: claude_code
-model: claude-opus-4-8
+model: claude-sonnet-5-5
 enabled: true
 triggers:
   - type: manual
