@@ -1,0 +1,13 @@
+version: 1
+repositories:
+  primary: "github.com/thoughtgeek/django-test-lib"
+  related: []
+environment:
+  setup: "curl -LsSf https://astral.sh/uv/install.sh | sh && export PATH=\"$HOME/.local/bin:$PATH\" && uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -r requirements.txt && .venv/bin/python manage.py migrate"
+  start: ".venv/bin/python manage.py runserver 0.0.0.0:8000"
+  ready: "curl --fail http://127.0.0.1:8000/"
+  services:
+    app:
+      port: 8000
+      protocol: http
+      websocket: true
