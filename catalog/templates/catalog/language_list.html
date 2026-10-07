@@ -1,18 +1,17 @@
 {% extends "base_generic.html" %}
 
 {% block content %}
+<h1 class="page-title">Language List</h1>
 
-<h1>Language List</h1>
-
-<ul>
-  {% for language in language_list %}
-  <li>
-    <a href="{{ language.get_absolute_url }}">{{ language }}</a>
-  </li>
-  {% empty %}
-  <li>There are no languages available.</li>
-  {% endfor %}
-</ul>
-
+{% if language_list %}
+<div class="card">
+  <ul class="list-group list-group-flush">
+    {% for item in language_list %}
+    <li class="list-group-item"><a href="{{ item.get_absolute_url }}">{{ item }}</a></li>
+    {% endfor %}
+  </ul>
+</div>
+{% else %}
+  <div class="empty-state card"><div class="card-body"><p class="empty-title">No languages available</p></div></div>
+{% endif %}
 {% endblock %}
-

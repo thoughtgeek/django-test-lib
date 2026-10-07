@@ -1,25 +1,17 @@
 {% extends "base_generic.html" %}
 
 {% block content %}
-
-<h1>Genre List</h1>
+<h1 class="page-title">Genre List</h1>
 
 {% if genre_list %}
-  <ul>
-
-  {% for genre in genre_list %}
-    <li>
-      <a href="{{ genre.get_absolute_url }}">
-      {{ genre }}
-      </a>
-    </li>
-  {% endfor %}
-
- </ul>
+<div class="card">
+  <ul class="list-group list-group-flush">
+    {% for item in genre_list %}
+    <li class="list-group-item"><a href="{{ item.get_absolute_url }}">{{ item }}</a></li>
+    {% endfor %}
+  </ul>
+</div>
 {% else %}
-  <p>There are no genres available.</p>
+  <div class="empty-state card"><div class="card-body"><p class="empty-title">No genres available</p></div></div>
 {% endif %}
-
-
 {% endblock %}
-
