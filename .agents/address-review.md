@@ -1,10 +1,8 @@
 ---
 name: address-review
 description: Resolves actionable review feedback on the existing story branch.
-engine: codex
-model: gpt-5.6-sol
-options:
-  reasoning_effort: high
+engine: claude_code
+model: claude-sonnet-5-5
 enabled: true
 triggers:
   - type: manual
