@@ -329,3 +329,7 @@ select:focus-visible, textarea:focus-visible, .btn:focus-visible,
 .auth-card { margin-top: var(--ll-space-4); }
 .auth-card .card-body { padding: var(--ll-space-5) var(--ll-space-4); }
 .status-badge { letter-spacing: 0.01em; }
+
+/* Compact copies table on book detail */
+.copies-table th, .copies-table td { padding: 0.45rem 0.75rem; }
+.copies-table thead th { padding-block: 0.55rem; }
