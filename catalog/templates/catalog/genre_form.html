@@ -1,13 +1,14 @@
 {% extends "base_generic.html" %}
 
 {% block content %}
-
-<form action="" method="post">
-    {% csrf_token %}
-    <table>
-    {{ form.as_table }}
-    </table>
-    <input type="submit" value="Submit">
-
-</form>
+<div class="form-card card">
+  <div class="card-body">
+    <h1 class="page-title">Genre</h1>
+    <form action="" method="post" novalidate>
+      {% csrf_token %}
+      {% include "includes/form_fields.html" %}
+      <button type="submit" class="btn btn-primary">Submit</button>
+    </form>
+  </div>
+</div>
 {% endblock %}

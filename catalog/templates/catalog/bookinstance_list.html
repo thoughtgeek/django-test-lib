@@ -1,20 +1,28 @@
 {% extends "base_generic.html" %}
 
 {% block content %}
-    <h1>Book Copies in Library</h1>
+<h1 class="page-title">Book Copies in Library</h1>
 
-    <ul>
+{% if bookinstance_list %}
+<div class="card table-card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead><tr><th scope="col">Book</th><th scope="col">Status</th><th scope="col">Due back</th>{% if user.is_staff %}<th scope="col">Borrower</th>{% endif %}{% if perms.catalog.can_mark_returned %}<th scope="col"><span class="visually-hidden">Actions</span></th>{% endif %}</tr></thead>
+      <tbody>
       {% for bookinst in bookinstance_list %}
-      <li class="{% if bookinst.is_overdue %}text-danger{% endif %}">
-        <a href="{% url 'bookinstance-detail' bookinst.pk %}">{{bookinst.book.title}}</a> ({{ bookinst.get_status_display }})
-        {% if bookinst.status != 'a' %}: {{ bookinst.due_back }} {% endif %}
-        {% if bookinst.status == 'o' %}
-          {% if user.is_staff %}- {{ bookinst.borrower }}{% endif %} {% if perms.catalog.can_mark_returned %}- <a href="{% url 'renew-book-librarian' bookinst.id %}">Renew</a> {% endif %}
-        {% endif %}
-      </li>
-      {% empty %}
-      <li>There are no book copies available.</li>
+        <tr>
+          <td><a href="{% url 'bookinstance-detail' bookinst.pk %}">{{bookinst.book.title}}</a></td>
+          <td><span class="badge status-badge {% if bookinst.status == 'a' %}status-available{% elif bookinst.status == 'd' %}status-maintenance{% elif bookinst.status == 'r' %}status-reserved{% else %}status-loan{% endif %}">{{ bookinst.get_status_display }}</span>{% if bookinst.is_overdue %} <span class="badge status-badge status-overdue">Overdue</span>{% endif %}</td>
+          <td>{% if bookinst.status != 'a' %}{{ bookinst.due_back }}{% else %}—{% endif %}</td>
+          {% if user.is_staff %}<td>{% if bookinst.status == 'o' %}{{ bookinst.borrower }}{% else %}—{% endif %}</td>{% endif %}
+          {% if perms.catalog.can_mark_returned %}<td class="text-end">{% if bookinst.status == 'o' %}<a class="btn btn-outline-primary btn-sm" href="{% url 'renew-book-librarian' bookinst.id %}">Renew</a>{% endif %}</td>{% endif %}
+        </tr>
       {% endfor %}
-    </ul>
-
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+  <div class="empty-state card"><div class="card-body"><p class="empty-title">There are no book copies available.</p></div></div>
+{% endif %}
 {% endblock %}

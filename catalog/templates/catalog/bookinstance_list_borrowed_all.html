@@ -1,19 +1,27 @@
 {% extends "base_generic.html" %}
 
 {% block content %}
-    <h1>All Borrowed Books</h1>
+<h1 class="page-title">All Borrowed Books</h1>
 
-    {% if bookinstance_list %}
-    <ul>
-
-      {% for bookinst in bookinstance_list %} 
-      <li class="{% if bookinst.is_overdue %}text-danger{% endif %}">
-        <a href="{% url 'book-detail' bookinst.book.pk %}">{{bookinst.book.title}}</a> ({{ bookinst.due_back }}) {% if user.is_staff %}- {{ bookinst.borrower }}{% endif %} {% if perms.catalog.can_mark_returned %}- <a href="{% url 'renew-book-librarian' bookinst.id %}">Renew</a>  {% endif %}
-      </li>
+{% if bookinstance_list %}
+<div class="card table-card">
+  <div class="table-responsive">
+    <table class="table table-hover align-middle mb-0">
+      <thead><tr><th scope="col">Book</th><th scope="col">Due back</th>{% if user.is_staff %}<th scope="col">Borrower</th>{% endif %}{% if perms.catalog.can_mark_returned %}<th scope="col"><span class="visually-hidden">Actions</span></th>{% endif %}</tr></thead>
+      <tbody>
+      {% for bookinst in bookinstance_list %}
+        <tr>
+          <td><a href="{% url 'book-detail' bookinst.book.pk %}">{{bookinst.book.title}}</a></td>
+          <td>{{ bookinst.due_back }}{% if bookinst.is_overdue %} <span class="badge status-badge status-overdue">Overdue</span>{% endif %}</td>
+          {% if user.is_staff %}<td>{{ bookinst.borrower }}</td>{% endif %}
+          {% if perms.catalog.can_mark_returned %}<td class="text-end"><a class="btn btn-outline-primary btn-sm" href="{% url 'renew-book-librarian' bookinst.id %}">Renew</a></td>{% endif %}
+        </tr>
       {% endfor %}
-    </ul>
-
-    {% else %}
-      <p>There are no books borrowed.</p>
-    {% endif %}       
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+  <div class="empty-state card"><div class="card-body"><p class="empty-title">There are no books borrowed.</p></div></div>
+{% endif %}
 {% endblock %}

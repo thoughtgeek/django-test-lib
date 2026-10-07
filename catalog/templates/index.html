@@ -1,32 +1,29 @@
 {% extends "base_generic.html" %}
+{% load static %}
 
 {% block content %}
-<h1>Local Library Home</h1>
+<section class="hero card">
+  <div class="card-body">
+    <h1 class="page-title">Local Library Home</h1>
+    <p>Welcome to <em>LocalLibrary</em>, a very basic Django website developed as a <a href="https://developer.mozilla.org/en-US/docs/Learn/Server-side/Django/Tutorial_local_library_website">tutorial example</a> on the Mozilla Developer Network.</p>
+    <p class="mb-0">The tutorial demonstrates how to create a Django skeleton website and application, define URL mappings, views (including Generic List and Detail Views), models and templates.</p>
+  </div>
+</section>
 
-<p>Welcome to <em>LocalLibrary</em>, a very basic Django website developed as a <a href="https://developer.mozilla.org/en-US/docs/Learn/Server-side/Django/Tutorial_local_library_website">tutorial example</a> on the Mozilla Developer Network.</p>
-<p>The tutorial demonstrates how to create a Django skeleton website and application, define URL mappings, views (including Generic List and Detail Views), models and templates.</p>
-
-
-<h2>UML Models</h2>
-<p>An UML diagram of the site's Django model structure is shown below. </p>
-
-<div>
-{% load static %}
-<img src="{% static 'images/local_library_model_uml.png' %}" alt="My image" width="600px">
-</div>  
-
-
-<h2>Dynamic content</h2>
-
+<h2 class="section-title">Dynamic content</h2>
 <p>The library has the following record counts:</p>
-<ul>
-<li><strong>Books:</strong> {{ num_books }}</li>
-<li><strong>Copies:</strong> {{ num_instances }}</li>
-<li><strong>Copies available:</strong> {{ num_instances_available }}</li>
-<li><strong>Authors:</strong> {{ num_authors }}</li>
-</ul>
+<dl class="stat-grid">
+  <div class="stat card"><div class="card-body"><dt>Books</dt><dd>{{ num_books }}</dd></div></div>
+  <div class="stat card"><div class="card-body"><dt>Copies</dt><dd>{{ num_instances }}</dd></div></div>
+  <div class="stat card"><div class="card-body"><dt>Copies available</dt><dd>{{ num_instances_available }}</dd></div></div>
+  <div class="stat card"><div class="card-body"><dt>Authors</dt><dd>{{ num_authors }}</dd></div></div>
+</dl>
 
+<p class="text-body-secondary">You have visited this page {{ num_visits }} time{{ num_visits|pluralize }}.</p>
 
-<p>You have visited this page {{ num_visits }} time{{ num_visits|pluralize }}.</p>
-
+<h2 class="section-title">UML Models</h2>
+<p>An UML diagram of the site's Django model structure is shown below.</p>
+<div class="card"><div class="card-body text-center">
+  <img class="img-fluid" src="{% static 'images/local_library_model_uml.png' %}" alt="UML diagram of the Local Library Django models" width="600">
+</div></div>
 {% endblock %}
