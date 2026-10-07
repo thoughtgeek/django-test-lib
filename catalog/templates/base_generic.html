@@ -17,69 +17,72 @@
 <a class="skip-link" href="#main">Skip to main content</a>
 
 {% block navbar %}
-<header class="site-header">
-  <nav class="navbar navbar-expand-lg site-nav" aria-label="Main navigation">
-    <div class="container">
-      <a class="navbar-brand" href="{% url 'index' %}">Local Library</a>
-      <button class="navbar-toggler" type="button" data-nav-toggle aria-controls="main-menu" aria-expanded="false" aria-label="Toggle navigation">
-        <span class="navbar-toggler-icon"></span>
-      </button>
-      <div class="collapse navbar-collapse" id="main-menu">
-        <ul class="navbar-nav me-auto">
-          <li class="nav-item"><a class="nav-link{% if request.resolver_match.url_name == 'index' %} active{% endif %}" href="{% url 'index' %}">Home</a></li>
-          <li class="nav-item"><a class="nav-link{% if request.resolver_match.url_name == 'bookinstances' %} active{% endif %}" href="{% url 'bookinstances' %}">All book copies</a></li>
-          <li class="nav-item"><a class="nav-link{% if request.resolver_match.url_name == 'books' %} active{% endif %}" href="{% url 'books' %}">All books</a></li>
-          <li class="nav-item"><a class="nav-link{% if request.resolver_match.url_name == 'authors' %} active{% endif %}" href="{% url 'authors' %}">All authors</a></li>
-          <li class="nav-item"><a class="nav-link{% if request.resolver_match.url_name == 'genres' %} active{% endif %}" href="{% url 'genres' %}">All genres</a></li>
-          <li class="nav-item"><a class="nav-link{% if request.resolver_match.url_name == 'languages' %} active{% endif %}" href="{% url 'languages' %}">All languages</a></li>
-        </ul>
-        <ul class="navbar-nav nav-user">
-          {% if user.is_authenticated %}
-            <li class="nav-item"><span class="nav-text">User: {{ user.get_username }}</span></li>
-            <li class="nav-item"><a class="nav-link{% if request.resolver_match.url_name == 'my-borrowed' %} active{% endif %}" href="{% url 'my-borrowed' %}">My borrowed</a></li>
-            <li class="nav-item">
-              <form id="logout-form" method="post" action="{% url 'logout' %}">
-                {% csrf_token %}
-                <button type="submit" class="btn btn-outline-secondary btn-sm">Logout</button>
-              </form>
-            </li>
-          {% else %}
-            <li class="nav-item"><a class="btn btn-primary btn-sm" href="{% url 'login'%}?next={{request.path}}">Login</a></li>
-          {% endif %}
-        </ul>
-      </div>
-    </div>
-  </nav>
+<div class="mobile-bar">
+  <a class="navbar-brand" href="{% url 'index' %}">Local Library</a>
+  <button class="navbar-toggler" type="button" data-nav-toggle aria-controls="main-menu" aria-expanded="false" aria-label="Toggle navigation">
+    <span class="navbar-toggler-icon"></span>
+  </button>
+</div>
 
-  {% if user.is_staff %}
-  <nav class="staff-bar" aria-label="Staff">
-    <div class="container">
-      <ul class="staff-links">
-        <li class="staff-label">Staff</li>
-        <li><a href="{% url 'all-borrowed' %}">All borrowed</a></li>
-        {% if perms.catalog.add_genre %}
-          <li><a href="{% url 'genre-create' %}">Create genre</a></li>
-        {% endif %}
-        {% if perms.catalog.add_language %}
-          <li><a href="{% url 'language-create' %}">Create language</a></li>
-        {% endif %}
-        {% if perms.catalog.add_author %}
-          <li><a href="{% url 'author-create' %}">Create author</a></li>
-        {% endif %}
-        {% if perms.catalog.add_book %}
-          <li><a href="{% url 'book-create' %}">Create book</a></li>
-        {% endif %}
-        {% if perms.catalog.add_bookinstance %}
-          <li><a href="{% url 'bookinstance-create' %}">Create copy of book</a></li>
+<div class="layout">
+<aside class="sidebar" id="main-menu">
+  <nav aria-label="Main navigation">
+    <a class="navbar-brand sidebar-brand" href="{% url 'index' %}">Local Library</a>
+    <ul class="sidebar-nav">
+      <li><a class="nav-link{% if request.resolver_match.url_name == 'index' %} active{% endif %}" href="{% url 'index' %}">Home</a></li>
+      <li><a class="nav-link{% if request.resolver_match.url_name == 'bookinstances' %} active{% endif %}" href="{% url 'bookinstances' %}">All book copies</a></li>
+      <li><a class="nav-link{% if request.resolver_match.url_name == 'books' %} active{% endif %}" href="{% url 'books' %}">All books</a></li>
+      <li><a class="nav-link{% if request.resolver_match.url_name == 'authors' %} active{% endif %}" href="{% url 'authors' %}">All authors</a></li>
+      <li><a class="nav-link{% if request.resolver_match.url_name == 'genres' %} active{% endif %}" href="{% url 'genres' %}">All genres</a></li>
+      <li><a class="nav-link{% if request.resolver_match.url_name == 'languages' %} active{% endif %}" href="{% url 'languages' %}">All languages</a></li>
+    </ul>
+
+    <div class="sidebar-section">
+      <div class="sidebar-label">Account</div>
+      <ul class="sidebar-nav">
+        {% if user.is_authenticated %}
+          <li><span class="nav-text">User: {{ user.get_username }}</span></li>
+          <li><a class="nav-link{% if request.resolver_match.url_name == 'my-borrowed' %} active{% endif %}" href="{% url 'my-borrowed' %}">My borrowed</a></li>
+          <li>
+            <form id="logout-form" method="post" action="{% url 'logout' %}">
+              {% csrf_token %}
+              <button type="submit" class="btn btn-outline-secondary btn-sm">Logout</button>
+            </form>
+          </li>
+        {% else %}
+          <li><a class="btn btn-primary btn-sm" href="{% url 'login'%}?next={{request.path}}">Login</a></li>
         {% endif %}
       </ul>
     </div>
+
+    {% if user.is_staff %}
+    <div class="sidebar-section">
+      <div class="sidebar-label">Staff</div>
+      <ul class="sidebar-nav">
+        <li><a class="nav-link{% if request.resolver_match.url_name == 'all-borrowed' %} active{% endif %}" href="{% url 'all-borrowed' %}">All borrowed</a></li>
+        {% if perms.catalog.add_genre %}
+          <li><a class="nav-link" href="{% url 'genre-create' %}">Create genre</a></li>
+        {% endif %}
+        {% if perms.catalog.add_language %}
+          <li><a class="nav-link" href="{% url 'language-create' %}">Create language</a></li>
+        {% endif %}
+        {% if perms.catalog.add_author %}
+          <li><a class="nav-link" href="{% url 'author-create' %}">Create author</a></li>
+        {% endif %}
+        {% if perms.catalog.add_book %}
+          <li><a class="nav-link" href="{% url 'book-create' %}">Create book</a></li>
+        {% endif %}
+        {% if perms.catalog.add_bookinstance %}
+          <li><a class="nav-link" href="{% url 'bookinstance-create' %}">Create copy of book</a></li>
+        {% endif %}
+      </ul>
+    </div>
+    {% endif %}
   </nav>
-  {% endif %}
-</header>
+</aside>
 {% endblock %}
 
-<main id="main" class="container page">
+<main id="main" class="content page">
   {% block content %}{% endblock %}
 
   {% block actions %}{% endblock %}
@@ -104,6 +107,8 @@
     {% endif %}
   {% endblock %}
 </main>
+</div>
+
 
 </body>
 </html>

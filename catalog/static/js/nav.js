@@ -1,4 +1,4 @@
-// Minimal hamburger toggle for the navbar (Bootstrap's JS bundle is not loaded).
+// Minimal hamburger toggle for the sidebar (mobile) (Bootstrap's JS bundle is not loaded).
 document.addEventListener('DOMContentLoaded', function () {
   var toggle = document.querySelector('[data-nav-toggle]');
   if (!toggle) { return; }
