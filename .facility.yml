@@ -3,8 +3,8 @@ repositories:
   primary: "github.com/thoughtgeek/django-test-lib"
   related: []
 environment:
-  setup: "curl -LsSf https://astral.sh/uv/install.sh | sh && export PATH=\"$HOME/.local/bin:$PATH\" && uv venv --python 3.12 .venv && uv pip install --python .venv/bin/python -r requirements.txt && .venv/bin/python manage.py migrate"
-  start: ".venv/bin/python manage.py runserver 0.0.0.0:8000"
+  setup: "curl -LsSf https://astral.sh/uv/install.sh | sh && export PATH=\"$HOME/.local/bin:$PATH\" && uv venv --python 3.12 --allow-existing .venv && uv pip install --python .venv/bin/python -r requirements.txt && .venv/bin/python manage.py migrate"
+  start: "pgrep -f '[m]anage.py runserver' >/dev/null || (setsid nohup .venv/bin/python manage.py runserver 0.0.0.0:8000 >/tmp/runserver.log 2>&1 </dev/null &)"
   ready: "curl --fail http://127.0.0.1:8000/"
   secrets:
     - CLAUDE_CODE_OAUTH_TOKEN
