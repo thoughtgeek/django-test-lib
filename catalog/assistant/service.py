@@ -63,14 +63,17 @@ def handle_message(request, text, client):
     for _ in range(settings.ASSISTANT_MAX_TOOL_ROUNDS):
         response = client.chat(messages, tools.TOOL_SCHEMAS)
         calls = response['tool_calls']
+        if not isinstance(response['content'], str):
+            response['content'] = ''
         if not calls:
             reply = response['content'].strip() or FALLBACK_REPLY
             break
+        calls = calls[:MAX_CALLS_PER_ROUND]  # echo only the calls that get a tool result
         messages.append({
             'role': 'assistant', 'content': response['content'],
             'tool_calls': [{'function': {'name': c['name'], 'arguments': c['arguments']}} for c in calls],
         })
-        for call in calls[:MAX_CALLS_PER_ROUND]:
+        for call in calls:
             result = tools.run_tool(request, call['name'], call['arguments'])
             messages.append({
                 'role': 'tool', 'tool_name': str(call['name'])[:64],

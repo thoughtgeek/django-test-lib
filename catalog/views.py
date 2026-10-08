@@ -1,3 +1,10 @@
+import logging
+
+from django.conf import settings
+from django.views import View
+
+from catalog.assistant import service, tools as assistant_tools
+from catalog.assistant.client import AssistantUnavailable, get_client
 from django.shortcuts import render
 
 # Create your views here.
@@ -265,14 +272,6 @@ class BookInstanceDelete(PermissionRequiredMixin, DeleteView):
 
 
 # AI librarian assistant
-import logging
-
-from django.conf import settings
-from django.views import View
-
-from catalog.assistant import service, tools as assistant_tools
-from catalog.assistant.client import AssistantUnavailable, get_client
-
 assistant_logger = logging.getLogger(__name__)
 
 

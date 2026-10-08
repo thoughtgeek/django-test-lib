@@ -244,3 +244,18 @@ class CapTests(AssistantTestCase):
         for _ in range(15):
             self.say(fake)
         self.assertLessEqual(len(self.client.session['assistant_history']), 20)
+
+
+class ExtraToolCallTests(AssistantTestCase):
+    def test_only_answered_calls_are_echoed(self):
+        calls = [tool_call('my_loans') for _ in range(7)]
+        fake = FakeClient([{'tool_calls': calls}, {'content': 'done'}])
+        self.say(fake)
+        messages = fake.calls[1]['messages']
+        echoed = [m for m in messages if m.get('tool_calls')][0]['tool_calls']
+        answered = [m for m in messages if m['role'] == 'tool']
+        self.assertEqual(len(echoed), len(answered))
+
+    def test_unhashable_tool_name_is_an_error_result(self):
+        from catalog.assistant.tools import run_tool
+        self.assertEqual(run_tool(None, ['x'], {}), {'error': 'Unknown tool.'})

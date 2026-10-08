@@ -46,7 +46,7 @@ Load a small public-domain catalog (12 books, 25 copies in every loan status) an
 .venv/bin/python manage.py seed_library --yes-dev-data
 ```
 
-The command is idempotent: re-running it adds no rows and re-bases due dates on today. It refuses to run
+The command is idempotent: re-running it adds no rows, re-bases due dates on today and **resets status, borrower and due date of every seeded copy**, so a loan confirmed through the assistant on a seeded copy is undone. It refuses to run
 without `--yes-dev-data` because it creates accounts with known passwords. **Use it only on development
 databases.**
 

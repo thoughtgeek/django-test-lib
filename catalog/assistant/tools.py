@@ -174,7 +174,7 @@ REGISTRY = {
 
 def run_tool(request, name, arguments):
     """Dispatch a model-requested tool call; invalid requests become error results."""
-    entry = REGISTRY.get(name)
+    entry = REGISTRY.get(name) if isinstance(name, str) else None
     if entry is None:
         return {'error': 'Unknown tool.'}
     function, valid = entry

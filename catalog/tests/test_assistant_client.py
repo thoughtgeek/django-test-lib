@@ -70,3 +70,17 @@ class OllamaClientTest(SimpleTestCase):
     @override_settings(OLLAMA_API_KEY='k', OLLAMA_MODEL='m')
     def test_get_client_with_key(self):
         self.assertEqual(get_client().model, 'm')
+
+
+class MalformedPayloadTest(SimpleTestCase):
+    def setUp(self):
+        self.client = OllamaClient('k', 'm', 'https://ollama.com/api', 30)
+
+    def test_non_string_tool_name_or_content_is_unavailable(self):
+        for message in (
+            {'content': '', 'tool_calls': [{'function': {'name': ['x'], 'arguments': {}}}]},
+            {'content': ['not', 'a', 'string']},
+        ):
+            with mock.patch('urllib.request.urlopen', return_value=fake_response({'message': message})):
+                with self.assertRaises(AssistantUnavailable):
+                    self.client.chat([], [])

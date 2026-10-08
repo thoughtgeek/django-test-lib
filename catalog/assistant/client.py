@@ -44,12 +44,16 @@ class OllamaClient:
                 payload = json.loads(response.read())
             message = payload['message']
             content = message.get('content') or ''
+            if not isinstance(content, str):
+                raise ValueError('malformed content')
             calls = []
             for call in message.get('tool_calls') or []:
                 function = call['function']
                 arguments = function.get('arguments') or {}
                 if isinstance(arguments, str):  # be lenient with OpenAI-style strings
                     arguments = json.loads(arguments)
+                if not isinstance(function['name'], str) or not isinstance(arguments, dict):
+                    raise ValueError('malformed tool call')
                 calls.append({'name': function['name'], 'arguments': arguments})
             return {'content': content, 'tool_calls': calls}
         except (urllib.error.URLError, OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
