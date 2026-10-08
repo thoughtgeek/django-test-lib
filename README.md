@@ -57,3 +57,13 @@ databases.**
 
 Use `--password <value>` to choose the password for newly created users. Existing users keep their password
 unless you also pass `--reset-passwords`.
+
+## AI librarian assistant
+
+Signed-in users get an assistant at `/catalog/assistant/` backed by Ollama's hosted API. Configure it with
+environment variables (never commit a key):
+
+| Variable | Default | Purpose |
+|---|---|---|
+| `OLLAMA_API_KEY` | unset | API key from ollama.com/settings/keys. Unset shows "not configured". |
+| `OLLAMA_MODEL` | `gpt-oss:120b` | Any tool-capable model name from `https://ollama.com/api/tags`. |

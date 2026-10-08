@@ -169,3 +169,17 @@ STORAGES = {
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# AI librarian assistant (Ollama hosted API). The key is read from the environment only;
+# when it is unset the assistant page shows a "not configured" notice.
+OLLAMA_API_KEY = os.environ.get('OLLAMA_API_KEY', '')
+OLLAMA_MODEL = os.environ.get('OLLAMA_MODEL', 'gpt-oss:120b')
+OLLAMA_BASE_URL = os.environ.get('OLLAMA_BASE_URL', 'https://ollama.com/api')
+ASSISTANT_TIMEOUT_SECONDS = 30
+ASSISTANT_MAX_MESSAGE_CHARS = 500
+ASSISTANT_MAX_TOOL_ROUNDS = 4
+ASSISTANT_RATE_LIMIT = 20  # messages per user per window
+ASSISTANT_RATE_WINDOW_SECONDS = 3600
+ASSISTANT_PROPOSAL_TTL_SECONDS = 600
+ASSISTANT_LOAN_DAYS = 14
