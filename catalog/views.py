@@ -1,11 +1,11 @@
 import logging
 
 from django.conf import settings
+from django.shortcuts import render
 from django.views import View
 
 from catalog.assistant import service, tools as assistant_tools
 from catalog.assistant.client import AssistantUnavailable, get_client
-from django.shortcuts import render
 
 # Create your views here.
 
