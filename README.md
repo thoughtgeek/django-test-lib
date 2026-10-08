@@ -37,3 +37,23 @@ To get this project up and running locally on your computer:
 1. Open a browser to `http://127.0.0.1:8000/admin/` to open the admin site
 1. Create a few test objects of each type.
 1. Open tab to `http://127.0.0.1:8000` to see the main site, with your new objects.
+
+## Sample data
+
+Load a small public-domain catalog (12 books, 25 copies in every loan status) and two dev users:
+
+```
+.venv/bin/python manage.py seed_library --yes-dev-data
+```
+
+The command is idempotent: re-running it adds no rows and re-bases due dates on today. It refuses to run
+without `--yes-dev-data` because it creates accounts with known passwords. **Use it only on development
+databases.**
+
+| User | Password (default) | Notes |
+|---|---|---|
+| `librarian` | `library-dev-only` | has `can_mark_returned` |
+| `member` | `library-dev-only` | plain user, owns several loans |
+
+Use `--password <value>` to choose the password for newly created users. Existing users keep their password
+unless you also pass `--reset-passwords`.
