@@ -73,3 +73,10 @@ urlpatterns += [
     path('bookinstance/<uuid:pk>/delete/',
          views.BookInstanceDelete.as_view(), name='bookinstance-delete'),
 ]
+
+# AI librarian assistant
+urlpatterns += [
+    path('assistant/', views.AssistantView.as_view(), name='assistant'),
+    path('assistant/confirm/', views.AssistantConfirmView.as_view(), name='assistant-confirm'),
+    path('assistant/cancel/', views.AssistantCancelView.as_view(), name='assistant-cancel'),
+]

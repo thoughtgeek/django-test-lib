@@ -1,0 +1,41 @@
+{% extends "base_generic.html" %}
+
+{% block content %}
+<h1 class="page-title">Ask the librarian</h1>
+
+{% if not configured %}
+  <div class="alert alert-warning" role="alert">The assistant isn't configured. Ask an administrator to set <code>OLLAMA_API_KEY</code>.</div>
+{% endif %}
+
+<div class="card assistant-card">
+  <div class="card-body">
+    <ol class="assistant-transcript" aria-live="polite">
+    {% for turn in history %}
+      <li class="assistant-turn assistant-{{ turn.role }}"><span class="assistant-who">{% if turn.role == 'user' %}You{% else %}Librarian{% endif %}</span><p>{{ turn.content|linebreaksbr }}</p></li>
+    {% empty %}
+      <li class="assistant-turn assistant-assistant"><p>Hello! Ask me to find a book, check whether it's available, or list your loans.</p></li>
+    {% endfor %}
+    </ol>
+
+    {% if proposal %}
+    <div class="assistant-proposal" role="group" aria-label="Loan confirmation">
+      <p>Borrow <strong>{{ proposal.title }}</strong> for {{ loan_days }} days?</p>
+      <form method="post" action="{% url 'assistant-confirm' %}" class="d-inline">{% csrf_token %}<button type="submit" class="btn btn-primary btn-sm">Confirm</button></form>
+      <form method="post" action="{% url 'assistant-cancel' %}" class="d-inline">{% csrf_token %}<button type="submit" class="btn btn-outline-secondary btn-sm">Cancel</button></form>
+    </div>
+    {% endif %}
+
+    {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
+
+    <form method="post" action="{% url 'assistant' %}" class="assistant-form">
+      {% csrf_token %}
+      <label for="assistant-message" class="visually-hidden">Your message</label>
+      <textarea id="assistant-message" name="message" class="form-control" rows="2" maxlength="{{ max_chars }}" required {% if not configured %}disabled{% endif %}></textarea>
+      <div class="assistant-actions">
+        <button type="submit" class="btn btn-primary" {% if not configured %}disabled{% endif %}>Send</button>
+        <button type="submit" name="clear" value="1" formnovalidate class="btn btn-outline-secondary">Clear conversation</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -329,3 +329,14 @@ select:focus-visible, textarea:focus-visible, .btn:focus-visible,
 .auth-card { margin-top: var(--ll-space-4); }
 .auth-card .card-body { padding: var(--ll-space-5) var(--ll-space-4); }
 .status-badge { letter-spacing: 0.01em; }
+
+/* AI librarian assistant */
+.assistant-card { box-shadow: var(--ll-shadow); max-width: 48rem; }
+.assistant-transcript { list-style: none; margin: 0 0 1rem; padding: 0; display: flex; flex-direction: column; gap: .75rem; }
+.assistant-turn { padding: .6rem .9rem; border-radius: .75rem; border: 1px solid var(--ll-border); max-width: 85%; }
+.assistant-turn p { margin: 0; overflow-wrap: anywhere; }
+.assistant-user { align-self: flex-end; background: rgba(99,102,241,0.08); }
+.assistant-who { display: block; font-size: .75rem; font-weight: 600; opacity: .7; }
+.assistant-proposal { border: 1px dashed var(--ll-border); border-radius: .75rem; padding: .75rem .9rem; margin-bottom: 1rem; }
+.assistant-proposal p { margin: 0 0 .5rem; }
+.assistant-actions { display: flex; gap: .5rem; margin-top: .5rem; }
