@@ -46,6 +46,7 @@
         {% if user.is_authenticated %}
           <li><span class="nav-text user-chip"><span class="avatar" aria-hidden="true">{{ user.get_username|slice:":1"|upper }}</span><span>User: {{ user.get_username }}</span></span></li>
           <li><a class="nav-link{% if request.resolver_match.url_name == 'my-borrowed' %} active{% endif %}" href="{% url 'my-borrowed' %}"><i class="bi bi-bookmark-heart" aria-hidden="true"></i>My borrowed</a></li>
+          <li><a class="nav-link{% if request.resolver_match.url_name == 'assistant' %} active{% endif %}" href="{% url 'assistant' %}"><i class="bi bi-chat-dots" aria-hidden="true"></i>Ask the librarian</a></li>
           <li>
             <form id="logout-form" method="post" action="{% url 'logout' %}">
               {% csrf_token %}

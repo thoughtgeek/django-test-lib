@@ -1,4 +1,11 @@
+import logging
+
+from django.conf import settings
 from django.shortcuts import render
+from django.views import View
+
+from catalog.assistant import service, tools as assistant_tools
+from catalog.assistant.client import AssistantUnavailable, get_client
 
 # Create your views here.
 
@@ -262,3 +269,68 @@ class BookInstanceDelete(PermissionRequiredMixin, DeleteView):
     model = BookInstance
     success_url = reverse_lazy('bookinstances')
     permission_required = 'catalog.delete_bookinstance'
+
+
+# AI librarian assistant
+assistant_logger = logging.getLogger(__name__)
+
+
+class AssistantView(LoginRequiredMixin, View):
+    """Server-rendered chat page. Model output is only ever rendered as escaped text."""
+    template_name = 'catalog/assistant.html'
+
+    def render_page(self, request, status=200, error=None):
+        return render(request, self.template_name, {
+            'history': service.get_history(request.session),
+            'proposals': assistant_tools.get_proposals(request),
+            'configured': bool(settings.OLLAMA_API_KEY),
+            'error': error,
+            'max_chars': settings.ASSISTANT_MAX_MESSAGE_CHARS,
+            'loan_days': settings.ASSISTANT_LOAN_DAYS,
+        }, status=status)
+
+    def get(self, request):
+        return self.render_page(request)
+
+    def post(self, request):
+        if 'clear' in request.POST:
+            service.clear_history(request.session)
+            assistant_tools.cancel_proposal(request)
+            return HttpResponseRedirect(reverse('assistant'))
+
+        text = request.POST.get('message', '').strip()
+        if not text:
+            return self.render_page(request, 400, 'Please type a message.')
+        if len(text) > settings.ASSISTANT_MAX_MESSAGE_CHARS:
+            return self.render_page(
+                request, 400, f'Messages are limited to {settings.ASSISTANT_MAX_MESSAGE_CHARS} characters.')
+        client = get_client()
+        if client is None:
+            return self.render_page(request, 503)
+        if service.rate_limited(request.user):
+            return self.render_page(request, 429, 'You have reached the hourly message limit. Please try again later.')
+        try:
+            service.handle_message(request, text, client)
+        except AssistantUnavailable as exc:
+            assistant_logger.warning('assistant unavailable: %s', exc)
+            return self.render_page(request, 503, 'The assistant is unavailable right now. Please try again shortly.')
+        return HttpResponseRedirect(reverse('assistant'))
+
+
+class AssistantConfirmView(LoginRequiredMixin, View):
+    """The only code path that borrows a book for the assistant: a user's own POST."""
+    http_method_names = ['post']
+
+    def post(self, request):
+        _, message = assistant_tools.confirm_loan(request, request.POST.get('proposal_id', ''))
+        service.append_history(request.session, 'assistant', message)
+        return HttpResponseRedirect(reverse('assistant'))
+
+
+class AssistantCancelView(LoginRequiredMixin, View):
+    http_method_names = ['post']
+
+    def post(self, request):
+        if assistant_tools.cancel_proposal(request, request.POST.get('proposal_id', '')):
+            service.append_history(request.session, 'assistant', 'OK, I have cancelled that loan request.')
+        return HttpResponseRedirect(reverse('assistant'))
