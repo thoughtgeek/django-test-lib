@@ -101,6 +101,11 @@ def propose_loan(request, book_id):
     book = Book.objects.filter(pk=book_id).first()
     if book is None:
         return {'error': 'No such book.'}
+    pending = get_proposal(request)
+    if pending and pending['book_id'] != book.id:
+        return {'proposed': False, 'reason': 'Another loan is already waiting for the user. Ask them to '
+                'confirm or cancel it first, then propose this book in a later message. '
+                'Do not tell the user this book is ready.'}
     copy = BookInstance.objects.filter(book=book, status='a', borrower__isnull=True).first()
     if copy is None:
         return {'proposed': False, 'reason': 'No copy of this book is available right now.'}

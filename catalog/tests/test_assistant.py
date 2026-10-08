@@ -259,3 +259,29 @@ class ExtraToolCallTests(AssistantTestCase):
     def test_unhashable_tool_name_is_an_error_result(self):
         from catalog.assistant.tools import run_tool
         self.assertEqual(run_tool(None, ['x'], {}), {'error': 'Unknown tool.'})
+
+
+class SinglePendingProposalTests(AssistantTestCase):
+    def test_two_proposals_in_one_round_only_first_is_pending(self):
+        author = Author.objects.create(first_name='B', last_name='B')
+        other = Book.objects.create(title='Dracula', author=author, summary='s', isbn='9780000000002')
+        BookInstance.objects.create(book=other, imprint='y', status='a')
+        fake = FakeClient([
+            {'tool_calls': [tool_call('propose_loan', book_id=self.book.id),
+                            tool_call('propose_loan', book_id=other.id)]},
+            {'content': 'Confirm Emma first.'},
+        ])
+        self.say(fake)
+        results = [m['content'] for m in fake.calls[1]['messages'] if m['role'] == 'tool']
+        self.assertIn('"proposed": true', results[0])
+        self.assertIn('"proposed": false', results[1])
+        self.assertEqual(self.client.session['assistant_proposal']['book_id'], self.book.id)
+        self.client.post(reverse('assistant-confirm'))
+        self.assertEqual(BookInstance.objects.filter(borrower__username='alice').count(), 1)
+        self.assertEqual(BookInstance.objects.get(book=other).status, 'a')
+
+    def test_system_prompt_says_no_holds(self):
+        fake = FakeClient([{'content': 'ok'}])
+        self.say(fake, 'put a hold on Emma')
+        system = fake.calls[0]['messages'][0]['content']
+        self.assertIn('cannot reserve or hold', system)
