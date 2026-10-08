@@ -7,6 +7,7 @@ POST made by the user.
 """
 import re
 import time
+import uuid
 from datetime import date, timedelta
 
 from django.conf import settings
@@ -15,7 +16,7 @@ from django.db.models import Count, Min, Q
 
 from catalog.models import Book, BookInstance
 
-PROPOSAL_KEY = 'assistant_proposal'
+PROPOSALS_KEY = 'assistant_proposals'
 MAX_RESULTS = 8
 SEARCH_FIELDS = {
     'title': 'title__icontains',
@@ -101,19 +102,24 @@ def propose_loan(request, book_id):
     book = Book.objects.filter(pk=book_id).first()
     if book is None:
         return {'error': 'No such book.'}
-    pending = get_proposal(request)
-    if pending and pending['book_id'] != book.id:
-        return {'proposed': False, 'reason': 'Another loan is already waiting for the user. Ask them to '
-                'confirm or cancel it first, then propose this book in a later message. '
-                'Do not tell the user this book is ready.'}
-    copy = BookInstance.objects.filter(book=book, status='a', borrower__isnull=True).first()
+    title = clean_text(book.title, 200)
+    pending = get_proposals(request)
+    if any(p['book_id'] == book.id for p in pending):
+        return {'proposed': True, 'title': title, 'needs_user_confirmation': True, 'already_pending': True}
+    if len(pending) >= settings.ASSISTANT_MAX_PROPOSALS:
+        return {'proposed': False, 'reason': f'At most {settings.ASSISTANT_MAX_PROPOSALS} loans can wait '
+                'for confirmation. Tell the user this book is NOT pending; they can confirm or cancel '
+                'some and ask again.'}
+    reserved = [p['instance_id'] for p in pending]
+    copy = BookInstance.objects.filter(book=book, status='a', borrower__isnull=True).exclude(
+        pk__in=reserved).first()
     if copy is None:
         return {'proposed': False, 'reason': 'No copy of this book is available right now.'}
-    request.session[PROPOSAL_KEY] = {
-        'instance_id': str(copy.id), 'book_id': book.id,
-        'title': clean_text(book.title, 200), 'created_at': time.time(),
-    }
-    return {'proposed': True, 'title': clean_text(book.title, 200), 'needs_user_confirmation': True}
+    request.session[PROPOSALS_KEY] = pending + [{
+        'id': uuid.uuid4().hex, 'instance_id': str(copy.id), 'book_id': book.id,
+        'title': title, 'created_at': time.time(),
+    }]
+    return {'proposed': True, 'title': title, 'needs_user_confirmation': True}
 
 
 def my_loans(request):
@@ -124,31 +130,35 @@ def my_loans(request):
         for i in loans[:20]])
 
 
-def get_proposal(request):
-    """Return the user's pending proposal, dropping it if it has expired."""
-    proposal = request.session.get(PROPOSAL_KEY)
-    if not proposal:
-        return None
-    if time.time() - proposal.get('created_at', 0) > settings.ASSISTANT_PROPOSAL_TTL_SECONDS:
-        request.session.pop(PROPOSAL_KEY, None)
-        return None
-    return proposal
+def get_proposals(request):
+    """Return the user's pending proposals, dropping any that have expired."""
+    stored = request.session.get(PROPOSALS_KEY) or []
+    now = time.time()
+    live = [p for p in stored if now - p.get('created_at', 0) <= settings.ASSISTANT_PROPOSAL_TTL_SECONDS]
+    if len(live) != len(stored):
+        request.session[PROPOSALS_KEY] = live
+    return live
 
 
-def cancel_proposal(request):
-    return request.session.pop(PROPOSAL_KEY, None) is not None
+def cancel_proposal(request, proposal_id=None):
+    """Cancel one proposal by its server-issued id, or all of them when no id is given."""
+    pending = get_proposals(request)
+    kept = [] if proposal_id is None else [p for p in pending if p['id'] != proposal_id]
+    request.session[PROPOSALS_KEY] = kept
+    return len(kept) != len(pending)
 
 
-def confirm_loan(request):
-    """Complete the pending proposal for ``request.user``. Returns (ok, message).
+def confirm_loan(request, proposal_id):
+    """Complete one pending proposal of ``request.user``. Returns (ok, message).
 
-    The proposal comes from the session only; nothing the client posts selects the copy.
-    The status-guarded UPDATE is the real race protection (SQLite ignores row locks).
+    ``proposal_id`` is only a key into the user's own session; nothing the client posts selects
+    the book or copy. The status-guarded UPDATE is the real race protection (SQLite ignores row locks).
     """
-    proposal = get_proposal(request)
+    pending = get_proposals(request)
+    proposal = next((p for p in pending if p['id'] == proposal_id), None)
     if proposal is None:
-        return False, 'There is no pending loan to confirm (it may have expired).'
-    request.session.pop(PROPOSAL_KEY, None)
+        return False, 'There is no such pending loan to confirm (it may have expired).'
+    request.session[PROPOSALS_KEY] = [p for p in pending if p is not proposal]
     due = date.today() + timedelta(days=settings.ASSISTANT_LOAN_DAYS)
     with transaction.atomic():
         updated = BookInstance.objects.filter(

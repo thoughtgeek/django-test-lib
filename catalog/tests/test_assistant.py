@@ -29,6 +29,12 @@ class AssistantTestCase(TestCase):
         with mock.patch('catalog.views.get_client', return_value=fake):
             return (client or self.client).post(reverse('assistant'), {'message': text})
 
+    def pid(self, client=None, index=0):
+        return (client or self.client).session['assistant_proposals'][index]['id']
+
+    def confirm(self, pid, client=None, **extra):
+        return (client or self.client).post(reverse('assistant-confirm'), {'proposal_id': pid, **extra})
+
     def propose_script(self):
         return FakeClient([
             {'tool_calls': [tool_call('propose_loan', book_id=self.book.id)]},
@@ -103,7 +109,7 @@ class HappyPathTests(AssistantTestCase):
         self.copy.refresh_from_db()
         self.assertEqual(self.copy.status, 'a')  # still not borrowed
 
-        self.client.post(reverse('assistant-confirm'))
+        self.confirm(self.pid())
         self.copy.refresh_from_db()
         self.assertEqual((self.copy.status, self.copy.borrower), ('o', self.alice))
         self.assertEqual(self.copy.due_back, date.today() + timedelta(days=14))
@@ -112,8 +118,9 @@ class HappyPathTests(AssistantTestCase):
 
     def test_cancel(self):
         self.say(self.propose_script())
-        self.client.post(reverse('assistant-cancel'))
-        self.client.post(reverse('assistant-confirm'))
+        pid = self.pid()
+        self.client.post(reverse('assistant-cancel'), {'proposal_id': pid})
+        self.confirm(pid)
         self.copy.refresh_from_db()
         self.assertEqual(self.copy.status, 'a')
 
@@ -137,6 +144,7 @@ class HappyPathTests(AssistantTestCase):
 class DenialTests(AssistantTestCase):
     def test_confirm_without_proposal_does_nothing(self):
         self.client.post(reverse('assistant-confirm'))
+        self.confirm('made-up-id')
         self.copy.refresh_from_db()
         self.assertEqual(self.copy.status, 'a')
 
@@ -144,21 +152,23 @@ class DenialTests(AssistantTestCase):
         self.say(self.propose_script())
         other = Client()
         other.login(username='bob', password='pw')
-        other.post(reverse('assistant-confirm'), {'instance_id': str(self.copy.id), 'user': 'bob'})
+        self.confirm(self.pid(), client=other, instance_id=str(self.copy.id), user='bob')
         self.copy.refresh_from_db()
         self.assertEqual((self.copy.status, self.copy.borrower), ('a', None))
 
     def test_posted_ids_are_ignored(self):
         other_copy = BookInstance.objects.create(book=self.book, imprint='y', status='a')
         self.say(self.propose_script())
-        self.client.post(reverse('assistant-confirm'), {'instance_id': str(other_copy.id)})
+        self.confirm(self.pid(), instance_id=str(other_copy.id), book_id=self.book.id)
         other_copy.refresh_from_db()
         self.assertEqual(other_copy.status, 'a')
+        self.copy.refresh_from_db()
+        self.assertEqual(self.copy.borrower, self.alice)  # only the server-chosen copy moved
 
     def test_copy_taken_between_propose_and_confirm(self):
         self.say(self.propose_script())
         BookInstance.objects.update(status='o', borrower=self.bob)
-        self.client.post(reverse('assistant-confirm'))
+        self.confirm(self.pid())
         self.copy.refresh_from_db()
         self.assertEqual(self.copy.borrower, self.bob)
         self.assertContains(self.client.get(reverse('assistant')), 'no longer available')
@@ -166,9 +176,10 @@ class DenialTests(AssistantTestCase):
     def test_expired_proposal_rejected(self):
         self.say(self.propose_script())
         session = self.client.session
-        session['assistant_proposal']['created_at'] -= 3600
+        session['assistant_proposals'][0]['created_at'] -= 3600
         session.save()
-        self.client.post(reverse('assistant-confirm'))
+        pid = session['assistant_proposals'][0]['id']
+        self.confirm(pid)
         self.copy.refresh_from_db()
         self.assertEqual(self.copy.status, 'a')
 
@@ -194,7 +205,7 @@ class InjectionTests(AssistantTestCase):
         self.assertIn('untrusted_data', tool_results[0])
         self.copy.refresh_from_db()
         self.assertEqual((self.copy.status, self.copy.borrower), ('a', None))
-        self.assertNotIn('assistant_proposal', self.client.session)
+        self.assertEqual(self.client.session.get('assistant_proposals', []), [])
         page = self.client.get(reverse('assistant')).content.decode()
         self.assertNotIn('<script>alert', page)
         self.assertIn('&lt;script&gt;alert(2)', page)
@@ -205,7 +216,7 @@ class InjectionTests(AssistantTestCase):
             {'content': 'ok'},
         ])
         self.say(fake)
-        self.client.post(reverse('assistant-confirm'))
+        self.confirm(self.pid())
         self.copy.refresh_from_db()
         self.assertEqual(self.copy.borrower, self.alice)  # the session's user, never anyone else
 
@@ -261,27 +272,90 @@ class ExtraToolCallTests(AssistantTestCase):
         self.assertEqual(run_tool(None, ['x'], {}), {'error': 'Unknown tool.'})
 
 
-class SinglePendingProposalTests(AssistantTestCase):
-    def test_two_proposals_in_one_round_only_first_is_pending(self):
+class MultiProposalViewTests(AssistantTestCase):
+    def setUp(self):
+        super().setUp()
         author = Author.objects.create(first_name='B', last_name='B')
-        other = Book.objects.create(title='Dracula', author=author, summary='s', isbn='9780000000002')
-        BookInstance.objects.create(book=other, imprint='y', status='a')
+        self.other = Book.objects.create(title='Dracula', author=author, summary='s', isbn='9780000000002')
+        self.other_copy = BookInstance.objects.create(book=self.other, imprint='y', status='a')
+
+    def propose_both(self):
         fake = FakeClient([
             {'tool_calls': [tool_call('propose_loan', book_id=self.book.id),
-                            tool_call('propose_loan', book_id=other.id)]},
-            {'content': 'Confirm Emma first.'},
+                            tool_call('propose_loan', book_id=self.other.id)]},
+            {'content': 'Both are waiting for you.'},
         ])
         self.say(fake)
-        results = [m['content'] for m in fake.calls[1]['messages'] if m['role'] == 'tool']
-        self.assertIn('"proposed": true', results[0])
-        self.assertIn('"proposed": false', results[1])
-        self.assertEqual(self.client.session['assistant_proposal']['book_id'], self.book.id)
-        self.client.post(reverse('assistant-confirm'))
-        self.assertEqual(BookInstance.objects.filter(borrower__username='alice').count(), 1)
-        self.assertEqual(BookInstance.objects.get(book=other).status, 'a')
+        return fake
 
-    def test_system_prompt_says_no_holds(self):
-        fake = FakeClient([{'content': 'ok'}])
-        self.say(fake, 'put a hold on Emma')
-        system = fake.calls[0]['messages'][0]['content']
-        self.assertIn('cannot reserve or hold', system)
+    def test_two_propose_calls_give_two_confirmable_proposals(self):
+        fake = self.propose_both()
+        results = [m['content'] for m in fake.calls[1]['messages'] if m['role'] == 'tool']
+        self.assertTrue(all('"proposed": true' in r for r in results))
+        page = self.client.get(reverse('assistant'))
+        self.assertContains(page, 'name="proposal_id"', count=4)  # a Confirm and a Cancel form each
+        self.assertContains(page, 'Emma')
+        self.assertContains(page, 'Dracula')
+
+        first, second = self.pid(index=0), self.pid(index=1)
+        self.confirm(first)
+        self.copy.refresh_from_db()
+        self.other_copy.refresh_from_db()
+        self.assertEqual((self.copy.status, self.copy.borrower), ('o', self.alice))
+        self.assertEqual(self.other_copy.status, 'a')  # confirming one leaves the other alone
+        self.assertEqual(len(self.client.session['assistant_proposals']), 1)
+
+        self.confirm(second)
+        self.other_copy.refresh_from_db()
+        self.assertEqual((self.other_copy.status, self.other_copy.borrower), ('o', self.alice))
+
+    def test_cancel_one_keeps_the_other_confirmable(self):
+        self.propose_both()
+        first, second = self.pid(index=0), self.pid(index=1)
+        self.client.post(reverse('assistant-cancel'), {'proposal_id': first})
+        self.confirm(first)  # already cancelled
+        self.copy.refresh_from_db()
+        self.assertEqual(self.copy.status, 'a')
+        self.confirm(second)
+        self.other_copy.refresh_from_db()
+        self.assertEqual(self.other_copy.borrower, self.alice)
+
+    def test_other_user_cannot_confirm_any_of_them(self):
+        self.propose_both()
+        ids = [self.pid(index=0), self.pid(index=1)]
+        other = Client()
+        other.login(username='bob', password='pw')
+        for pid in ids + ['forged', '']:
+            self.confirm(pid, client=other, instance_id=str(self.copy.id))
+        self.assertEqual(BookInstance.objects.filter(borrower__isnull=False).count(), 0)
+
+    def test_forged_and_missing_ids_do_nothing(self):
+        self.propose_both()
+        self.confirm('forged')
+        self.client.post(reverse('assistant-confirm'), {'instance_id': str(self.copy.id)})
+        self.assertEqual(BookInstance.objects.filter(borrower__isnull=False).count(), 0)
+        self.assertEqual(len(self.client.session['assistant_proposals']), 2)
+
+    def test_expired_proposals_cannot_be_confirmed(self):
+        self.propose_both()
+        session = self.client.session
+        ids = [p['id'] for p in session['assistant_proposals']]
+        for p in session['assistant_proposals']:
+            p['created_at'] -= 3600
+        session.save()
+        for pid in ids:
+            self.confirm(pid)
+        self.assertEqual(BookInstance.objects.filter(borrower__isnull=False).count(), 0)
+
+    def test_clear_conversation_drops_all_proposals(self):
+        self.propose_both()
+        self.client.post(reverse('assistant'), {'clear': '1'})
+        self.assertEqual(self.client.session.get('assistant_proposals', []), [])
+
+    def test_page_shows_only_what_is_pending(self):
+        self.propose_both()
+        self.client.post(reverse('assistant-cancel'), {'proposal_id': self.pid(index=0)})
+        page = self.client.get(reverse('assistant'))
+        self.assertContains(page, 'name="proposal_id"', count=2)
+        self.assertNotContains(page, 'Borrow <strong>Emma')
+        self.assertContains(page, 'Borrow <strong>Dracula')

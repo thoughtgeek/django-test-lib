@@ -1,6 +1,7 @@
 import time
 from datetime import date, timedelta
 
+from django.conf import settings
 from django.contrib.auth.models import User
 from django.test import RequestFactory, TestCase, override_settings
 
@@ -67,7 +68,7 @@ class ValidationTests(ToolsTestCase):
         ]
         for name, args in bad:
             self.assertIn('error', tools.run_tool(request, name, args), (name, args))
-        self.assertNotIn(tools.PROPOSAL_KEY, request.session)
+        self.assertEqual(tools.get_proposals(request), [])
         self.copy.refresh_from_db()
         self.assertEqual(self.copy.status, 'a')
 
@@ -88,6 +89,9 @@ class AvailabilityTests(ToolsTestCase):
 
 
 class LoanTests(ToolsTestCase):
+    def pid(self, request):
+        return request.session[tools.PROPOSALS_KEY][0]['id']
+
     def test_propose_does_not_borrow(self):
         request = make_request(self.alice)
         result = tools.run_tool(request, 'propose_loan', {'book_id': self.book.id})
@@ -103,39 +107,40 @@ class LoanTests(ToolsTestCase):
     def test_confirm_borrows_for_session_user(self):
         request = make_request(self.alice)
         tools.run_tool(request, 'propose_loan', {'book_id': self.book.id})
-        ok, _ = tools.confirm_loan(request)
+        ok, _ = tools.confirm_loan(request, self.pid(request))
         self.assertTrue(ok)
         self.copy.refresh_from_db()
         self.assertEqual((self.copy.status, self.copy.borrower), ('o', self.alice))
         self.assertEqual(self.copy.due_back, date.today() + timedelta(days=14))
         listing = tools.run_tool(request, 'my_loans', {})['untrusted_data']
         self.assertEqual([l['title'] for l in listing], ['Emma'])
-        self.assertNotIn(tools.PROPOSAL_KEY, request.session)
+        self.assertEqual(tools.get_proposals(request), [])
 
     def test_my_loans_only_own(self):
         BookInstance.objects.update(status='o', borrower=self.bob)
         self.assertEqual(tools.run_tool(make_request(self.alice), 'my_loans', {})['untrusted_data'], [])
 
     def test_confirm_without_proposal(self):
-        ok, _ = tools.confirm_loan(make_request(self.alice))
+        ok, _ = tools.confirm_loan(make_request(self.alice), 'nope')
         self.assertFalse(ok)
 
     def test_confirm_after_copy_taken(self):
         request = make_request(self.alice)
         tools.run_tool(request, 'propose_loan', {'book_id': self.book.id})
         BookInstance.objects.update(status='o', borrower=self.bob)
-        ok, message = tools.confirm_loan(request)
+        ok, message = tools.confirm_loan(request, self.pid(request))
         self.assertFalse(ok)
         self.assertIn('no longer available', message)
         self.copy.refresh_from_db()
         self.assertEqual(self.copy.borrower, self.bob)
-        self.assertNotIn(tools.PROPOSAL_KEY, request.session)
+        self.assertEqual(tools.get_proposals(request), [])
 
     def test_expired_proposal(self):
         request = make_request(self.alice)
         tools.run_tool(request, 'propose_loan', {'book_id': self.book.id})
-        request.session[tools.PROPOSAL_KEY]['created_at'] = time.time() - 601
-        ok, _ = tools.confirm_loan(request)
+        pid = self.pid(request)
+        request.session[tools.PROPOSALS_KEY][0]['created_at'] = time.time() - 601
+        ok, _ = tools.confirm_loan(request, pid)
         self.assertFalse(ok)
         self.copy.refresh_from_db()
         self.assertEqual(self.copy.status, 'a')
@@ -143,5 +148,55 @@ class LoanTests(ToolsTestCase):
     def test_double_confirm_borrows_once(self):
         request = make_request(self.alice)
         tools.run_tool(request, 'propose_loan', {'book_id': self.book.id})
-        self.assertTrue(tools.confirm_loan(request)[0])
-        self.assertFalse(tools.confirm_loan(request)[0])
+        pid = self.pid(request)
+        self.assertTrue(tools.confirm_loan(request, pid)[0])
+        self.assertFalse(tools.confirm_loan(request, pid)[0])
+
+
+class MultiProposalTests(ToolsTestCase):
+    def setUp(self):
+        super().setUp()
+        author = Author.objects.create(first_name='B', last_name='B')
+        self.other = Book.objects.create(title='Dracula', author=author, summary='s', isbn='9780000000002')
+        self.other_copy = BookInstance.objects.create(book=self.other, imprint='y', status='a')
+
+    def test_two_books_get_two_independent_proposals(self):
+        request = make_request(self.alice)
+        for book in (self.book, self.other):
+            self.assertTrue(tools.run_tool(request, 'propose_loan', {'book_id': book.id})['proposed'])
+        first, second = tools.get_proposals(request)
+        self.assertNotEqual(first['id'], second['id'])
+        self.assertTrue(tools.confirm_loan(request, first['id'])[0])
+        self.assertEqual([p['id'] for p in tools.get_proposals(request)], [second['id']])
+        self.other_copy.refresh_from_db()
+        self.assertEqual(self.other_copy.status, 'a')
+        self.assertTrue(tools.confirm_loan(request, second['id'])[0])
+        self.assertEqual(BookInstance.objects.filter(borrower=self.alice).count(), 2)
+
+    def test_cancel_one_leaves_the_other(self):
+        request = make_request(self.alice)
+        for book in (self.book, self.other):
+            tools.run_tool(request, 'propose_loan', {'book_id': book.id})
+        first, second = tools.get_proposals(request)
+        self.assertTrue(tools.cancel_proposal(request, first['id']))
+        self.assertEqual([p['id'] for p in tools.get_proposals(request)], [second['id']])
+
+    def test_same_book_twice_is_one_proposal_and_second_copy_not_reserved_twice(self):
+        spare = BookInstance.objects.create(book=self.book, imprint='z', status='a')
+        request = make_request(self.alice)
+        tools.run_tool(request, 'propose_loan', {'book_id': self.book.id})
+        again = tools.run_tool(request, 'propose_loan', {'book_id': self.book.id})
+        self.assertTrue(again['proposed'])
+        self.assertEqual(len(tools.get_proposals(request)), 1)
+        spare.delete()
+
+    def test_cap_refuses_clearly(self):
+        author = Author.objects.first()
+        request = make_request(self.alice)
+        limit = settings.ASSISTANT_MAX_PROPOSALS
+        for i in range(limit + 1):
+            b = Book.objects.create(title=f'T{i}', author=author, summary='s', isbn=f'97800000001{i:02d}')
+            BookInstance.objects.create(book=b, imprint='x', status='a')
+            result = tools.run_tool(request, 'propose_loan', {'book_id': b.id})
+        self.assertFalse(result['proposed'])
+        self.assertEqual(len(tools.get_proposals(request)), limit)

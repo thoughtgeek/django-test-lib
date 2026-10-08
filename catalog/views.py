@@ -282,7 +282,7 @@ class AssistantView(LoginRequiredMixin, View):
     def render_page(self, request, status=200, error=None):
         return render(request, self.template_name, {
             'history': service.get_history(request.session),
-            'proposal': assistant_tools.get_proposal(request),
+            'proposals': assistant_tools.get_proposals(request),
             'configured': bool(settings.OLLAMA_API_KEY),
             'error': error,
             'max_chars': settings.ASSISTANT_MAX_MESSAGE_CHARS,
@@ -322,7 +322,7 @@ class AssistantConfirmView(LoginRequiredMixin, View):
     http_method_names = ['post']
 
     def post(self, request):
-        _, message = assistant_tools.confirm_loan(request)
+        _, message = assistant_tools.confirm_loan(request, request.POST.get('proposal_id', ''))
         service.append_history(request.session, 'assistant', message)
         return HttpResponseRedirect(reverse('assistant'))
 
@@ -331,6 +331,6 @@ class AssistantCancelView(LoginRequiredMixin, View):
     http_method_names = ['post']
 
     def post(self, request):
-        if assistant_tools.cancel_proposal(request):
+        if assistant_tools.cancel_proposal(request, request.POST.get('proposal_id', '')):
             service.append_history(request.session, 'assistant', 'OK, I have cancelled that loan request.')
         return HttpResponseRedirect(reverse('assistant'))

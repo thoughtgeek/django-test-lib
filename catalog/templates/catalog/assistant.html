@@ -17,13 +17,13 @@
     {% endfor %}
     </ol>
 
-    {% if proposal %}
+    {% for proposal in proposals %}
     <div class="assistant-proposal" role="group" aria-label="Loan confirmation">
       <p>Borrow <strong>{{ proposal.title }}</strong> for {{ loan_days }} days?</p>
-      <form method="post" action="{% url 'assistant-confirm' %}" class="d-inline" onsubmit="this.querySelector('button').disabled = true">{% csrf_token %}<button type="submit" class="btn btn-primary btn-sm">Confirm</button></form>
-      <form method="post" action="{% url 'assistant-cancel' %}" class="d-inline">{% csrf_token %}<button type="submit" class="btn btn-outline-secondary btn-sm">Cancel</button></form>
+      <form method="post" action="{% url 'assistant-confirm' %}" class="d-inline" onsubmit="this.querySelector('button').disabled = true">{% csrf_token %}<input type="hidden" name="proposal_id" value="{{ proposal.id }}"><button type="submit" class="btn btn-primary btn-sm">Confirm</button></form>
+      <form method="post" action="{% url 'assistant-cancel' %}" class="d-inline">{% csrf_token %}<input type="hidden" name="proposal_id" value="{{ proposal.id }}"><button type="submit" class="btn btn-outline-secondary btn-sm">Cancel</button></form>
     </div>
-    {% endif %}
+    {% endfor %}
 
     {% if error %}<div class="alert alert-danger" role="alert">{{ error }}</div>{% endif %}
 
